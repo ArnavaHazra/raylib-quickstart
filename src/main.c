@@ -1,54 +1,104 @@
-/*
-Raylib example file.
-This is an example main file for a simple raylib project.
-Use this as a starting point or replace it with your code.
+#include <stdio.h>
+#include <raylib.h>
+#include <math.h>
 
-by Jeffery Myers is marked with CC0 1.0. To view a copy of this license, visit https://creativecommons.org/publicdomain/zero/1.0/
+#define WIDTH 	900
+#define HEIGHT	600
+#define G		1000	 	//Gravitational acc 
+#define L1 		250			//Length of Upper mass 
+#define L2 		150 		//Length of Lower mass 
+#define M1		10 			//Mass of Upper mass 
+#define M2 		10 			//Mass of Lower mass 
+#define R1 		15			//Radius of Upper mass 
+#define R2 		15 			//Radius of Lower mass 
 
-*/
 
-#include "raylib.h"
+//Global vars
+float phi1, phi2, phi1_d, phi2_d, phi1_dd, phi2_dd;
 
-#include "resource_dir.h"	// utility header for SearchAndSetResourceDir
 
-int main ()
-{
-	// Tell the window to use vsync and work on high DPI displays
-	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
+//To get end pos coordinates
+Vector2 get_end_pos(Vector2 start, float L,float phi) {
+	Vector2 end= (Vector2) { 
+		start.x + L * sinf(phi),  
+		start.y + L * cosf(phi)
+	};
+	return end;
+}
 
-	// Create the window and OpenGL context
-	InitWindow(800, 600, "Hello Raylib");
 
-	// Utility function from resource_dir.h to find the resources folder and set it as the current working directory so we can load from it
-	SearchAndSetResourceDir("resources");
+//To draw the line
+void draw_line(Vector2 start, Vector2 end) {
+	DrawLineEx(start, end, 2, WHITE);
+}
 
-	// Load a texture from the resources directory
-	Texture wabbit = LoadTexture("wabbit_alpha.png");
+
+//To draw the mass
+void draw_mass(Vector2 end, float R) {
+	DrawCircle(end.x, end.y, R, YELLOW);
+}
+
+
+//Double pendulam call
+void double_pend(Vector2 start) {
+	Vector2 start_pos_L1 = start;
+	Vector2 end_pos_L1 = get_end_pos(start_pos_L1, L1, phi1);
+
+	Vector2 start_pos_L2 = end_pos_L1;
+	Vector2 end_pos_L2 = get_end_pos(start_pos_L2, L2, phi2);
+
+
+	draw_line(start_pos_L1, end_pos_L1);
+	draw_line(start_pos_L2, end_pos_L2);
+
+	draw_mass(end_pos_L1, R1);
+	draw_mass(end_pos_L2, R2);
+}
+
+//system parameters
+void step(float dt) {
+
+	//angular acc
+	 phi1_dd = ( (-G*(2*M1+M2)*sinf(phi1)) - (M2*G*sinf(phi1-2*phi2)) - (2*sinf(phi1-phi2)*M2*(phi2_d*phi2_d*L2 + phi1_d*phi1_d*L1*cosf(phi1-phi2))) )/(L1*(2*M1 + M2 - (M2*cosf(2*phi1 - 2*phi2)) ));
+	 phi2_dd = ( (2*sinf(phi1-phi2))*( (phi1_d*phi1_d*L1*(M1+M2)) + (G*(M1+M2)*cosf(phi1)) + (phi2_d*phi2_d*L2*M2*cosf(phi1-phi2)) ) )/( L2*(2*M1 + M2 - (M2*cosf(2*phi1 - 2*phi2))) );
+
+	//angular vel
+	 phi1_d += phi1_dd * dt;
+	 phi2_d += phi2_dd * dt; 
+
+	//angle 
+	 phi1 += phi1_d * dt;
+	 phi2 += phi2_d * dt;
+
+}
+
+
+//Initializing the system
+void init_pend() {
+	phi1 = GetRandomValue(-90, 90)*DEG2RAD;
+	phi2 = GetRandomValue(-90, 90)*DEG2RAD;
+
+	phi1_d = 0;
+	phi2_d = 0;
+}
+
+
+int main(int argc, char *argv[]) {
 	
-	// game loop
-	while (!WindowShouldClose())		// run the loop until the user presses ESCAPE or presses the Close button on the window
-	{
-		// drawing
+	InitWindow(WIDTH, HEIGHT, "Double pendulum");
+	SetTargetFPS(60);
+
+	Vector2 start_pos_L1 = (Vector2){WIDTH/2, 0};
+	init_pend();
+	while(!WindowShouldClose()) {
+
+		step(GetFrameTime());
+		if(IsKeyPressed(KEY_SPACE))
+			init_pend();
 		BeginDrawing();
-
-		// Setup the back buffer for drawing (clear color and depth buffers)
 		ClearBackground(BLACK);
-
-		// draw some text using the default font
-		DrawText("Hello Raylib", 200,200,20,WHITE);
-
-		// draw our texture to the screen
-		DrawTexture(wabbit, 400, 200, WHITE);
-		
-		// end the frame and get ready for the next one  (display frame, poll input, etc...)
+		double_pend(start_pos_L1);
 		EndDrawing();
 	}
-
-	// cleanup
-	// unload our texture so it can be cleaned up
-	UnloadTexture(wabbit);
-
-	// destroy the window and cleanup the OpenGL context
-	CloseWindow();
 	return 0;
 }
